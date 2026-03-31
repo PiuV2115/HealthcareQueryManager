@@ -140,6 +140,9 @@ Tables:
 queue / tokens
 
 🗄️ 2. ER Diagram (Entity Relationship Diagram)
+
+<img width="1004" height="646" alt="image" src="https://github.com/user-attachments/assets/cdeb2a61-51f5-45d7-bb24-bd3d63e6aa63" />
+
 📌 Main Entity: Token / Patient Queue
 🧠 ER Diagram Visualization
 ✍️ How to Draw ER Diagram
