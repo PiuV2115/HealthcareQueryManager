@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Token Display — Hospital QMS</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .display-wrap {
+      display:grid; grid-template-columns:1fr 320px; gap:1.5rem;
+      height:calc(100vh - 64px); padding:1.5rem;
+      max-width:1400px; margin:0 auto;
+    }
+    .now-serving {
+      background:var(--bg2); border:1px solid var(--border);
+      border-radius:var(--radius-lg);
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; text-align:center; padding:3rem;
+      position:relative; overflow:hidden;
+    }
+    .now-serving::before {
+      content:''; position:absolute; top:0; left:0; right:0;
+      height:3px; background:var(--accent);
+    }
+    .now-label { font-size:0.8rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:var(--text2); margin-bottom:1.5rem; }
+    .now-dept  { font-size:1rem; color:var(--accent); font-weight:500; margin-bottom:0.5rem; font-family:var(--font-head); }
+    .now-token {
+      font-family:var(--font-mono); font-size:clamp(5rem, 14vw, 10rem);
+      font-weight:500; color:var(--text); line-height:1; letter-spacing:0.04em;
+    }
+    .now-token.highlight { color:var(--accent); animation:fadeIn 0.5s ease; }
+    .now-name  { font-size:1.4rem; font-family:var(--font-head); color:var(--text); margin-top:1rem; }
+    .now-sub   { font-size:0.95rem; color:var(--text2); margin-top:0.3rem; }
+    .now-time  { font-family:var(--font-mono); font-size:2.5rem; color:var(--text3); margin-top:2.5rem; }
+
+    .queue-panel { display:flex; flex-direction:column; gap:0.75rem; overflow:hidden; }
+    .queue-panel h3 { font-size:0.75rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--text2); }
+
+    /* ── Department filter tabs ── */
+    .dept-filter { display:flex; gap:6px; flex-wrap:wrap; }
+    .dept-btn {
+      background:var(--bg3); border:1px solid var(--border); border-radius:8px;
+      padding:5px 11px; font-size:0.75rem; color:var(--text2);
+      cursor:pointer; font-family:var(--font-body); transition:all 0.2s;
+      white-space:nowrap;
+    }
+    .dept-btn:hover { background:rgba(0,229,255,0.08); border-color:var(--accent2); color:var(--text); }
+    .dept-btn.active { background:rgba(0,229,255,0.12); border-color:var(--accent2); color:var(--accent); }
+
+    .queue-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:7px; }
+    .queue-item {
+      background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius);
+      padding:11px 14px; display:flex; align-items:center; gap:10px;
+      animation:fadeIn 0.4s ease;
+    }
+    .queue-item.top { border-color:rgba(0,229,255,0.3); }
+    .qi-num  { font-family:var(--font-mono); font-size:1.1rem; color:var(--accent); min-width:55px; font-weight:500; }
+    .qi-info { flex:1; min-width:0; }
+    .qi-name { font-size:0.875rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .qi-dept { font-size:0.72rem; color:var(--text2); margin-top:2px; }
+    .qi-wait { font-family:var(--font-mono); font-size:0.75rem; color:var(--amber); white-space:nowrap; }
+
+    /* ── Empty state ── */
+    .empty-queue {
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; flex:1; padding:2rem;
+      text-align:center; color:var(--text3); font-size:0.85rem;
+      gap:8px;
+    }
+    .empty-queue-icon { font-size:2rem; opacity:0.2; }
+
+    .nav-links { display:flex; gap:6px; align-items:center; }
+    .login-link {
+      font-size:0.78rem; color:var(--text3); text-decoration:none;
+      padding:4px 10px; border:1px solid var(--border); border-radius:8px;
+      transition:all 0.2s;
+    }
+    .login-link:hover { color:var(--text2); border-color:var(--border2); }
+  </style>
+</head>
+<body class="page">
+
+<nav class="navbar">
+  <a class="logo" href="index.html">QMS <span>Hospital</span></a>
+  <div class="nav-links">
+    <a href="index.html" style="color:var(--text2);text-decoration:none;font-size:0.875rem;padding:6px 14px;border-radius:8px;background:var(--bg3)">Display Board</a>
+    <a class="login-link" href="register.html">Register Patient</a>
+    <a class="login-link" href="staff-login.html">Staff Login</a>
+    <a class="login-link" href="doctor-login.html">Doctor Login</a>
+  </div>
+</nav>
+
+<div class="display-wrap">
+  <!-- Now Serving -->
+  <div class="now-serving">
+    <div class="now-label">Now Serving</div>
+    <div class="now-dept" id="nowDept">—</div>
+    <div class="now-token" id="nowToken">—</div>
+    <div class="now-name" id="nowName">No patient called yet</div>
+    <div class="now-sub">Please proceed to the counter</div>
+    <div class="now-time" id="clock">00:00</div>
+  </div>
+
+  <!-- Queue Panel -->
+  <div class="queue-panel">
+    <h3>Waiting Queue</h3>
+
+    <!-- Department filter — populated from API -->
+    <div class="dept-filter" id="deptFilter">
+      <button class="dept-btn active" onclick="filterDept('', this)">All</button>
+    </div>
+
+    <div class="queue-list" id="queueList">
+      <div class="empty-queue">
+        <div class="empty-queue-icon">🪑</div>
+        <span>No patients in queue</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  let activeDept = '';
+
+  // ── Clock ──────────────────────────────────────────────────────────────────
+  function updateClock() {
+    document.getElementById('clock').textContent =
+      new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── Load departments into filter tabs ──────────────────────────────────────
+  async function loadDepts() {
+    try {
+      const depts = await api.get('/departments');
+      const container = document.getElementById('deptFilter');
+      // keep the "All" button, append one per department
+      depts.forEach(d => {
+        const btn = document.createElement('button');
+        btn.className   = 'dept-btn';
+        btn.textContent = d.name;
+        btn.onclick     = () => filterDept(d.id, btn);
+        container.appendChild(btn);
+      });
+    } catch(e) {
+      // silently fail — filter still works with just "All"
+    }
+  }
+
+  // ── Filter by department ───────────────────────────────────────────────────
+  function filterDept(id, btn) {
+    activeDept = id;
+    document.querySelectorAll('.dept-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadQueue();
+  }
+
+  // ── Load queue ─────────────────────────────────────────────────────────────
+  async function loadQueue() {
+    let waitingUrl = '/tokens?status=waiting';
+    if (activeDept) waitingUrl += `&department_id=${activeDept}`;
+
+    try {
+      const [waiting, called] = await Promise.all([
+        api.get(waitingUrl),
+        api.get('/tokens?status=called'),
+      ]);
+
+      // Now serving panel
+      if (called.length) {
+        const c = called[0];
+        document.getElementById('nowToken').textContent = c.token_number;
+        document.getElementById('nowName').textContent  = c.patient_name;
+        document.getElementById('nowDept').textContent  = c.department_name;
+        document.getElementById('nowToken').className   = 'now-token highlight';
+      } else {
+        document.getElementById('nowToken').textContent = '—';
+        document.getElementById('nowName').textContent  = 'No patient called yet';
+        document.getElementById('nowDept').textContent  = '—';
+        document.getElementById('nowToken').className   = 'now-token';
+      }
+
+      // Waiting list
+      const list = document.getElementById('queueList');
+      if (!waiting.length) {
+        list.innerHTML = `
+          <div class="empty-queue">
+            <div class="empty-queue-icon">🪑</div>
+            <span>No patients waiting${activeDept ? ' in this department' : ''}</span>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = waiting.slice(0, 15).map((t, i) => `
+        <div class="queue-item ${i === 0 ? 'top' : ''}">
+          <div class="qi-num">${t.token_number}</div>
+          <div class="qi-info">
+            <div class="qi-name">${t.patient_name}</div>
+            <div class="qi-dept">${t.department_name}</div>
+          </div>
+          <div class="qi-wait">${formatWait(t.predicted_wait_minutes)}</div>
+        </div>
+      `).join('');
+
+    } catch(e) {
+      document.getElementById('queueList').innerHTML = `
+        <div class="empty-queue">
+          <div class="empty-queue-icon">⚠</div>
+          <span>Could not connect to server</span>
+        </div>`;
+    }
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  loadDepts();
+  loadQueue();
+  setInterval(loadQueue, 10000);
+</script>
+</body>
+</html>
