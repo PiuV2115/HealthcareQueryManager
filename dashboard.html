@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Staff Dashboard — Hospital QMS</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── Top bar ── */
+    .top-bar {
+      display:flex; justify-content:space-between; align-items:center;
+      flex-wrap:wrap; gap:1rem; margin-bottom:2rem;
+    }
+    .top-bar-left h1 { margin-bottom:4px; }
+    .live-pill {
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:0.78rem; color:var(--text2);
+    }
+    .live-dot {
+      width:7px;height:7px;border-radius:50%;
+      background:var(--green);box-shadow:0 0 6px var(--green);
+      animation:pulse 2s infinite;
+    }
+    .top-bar-right { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .user-chip {
+      display:flex; align-items:center; gap:7px;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:20px; padding:5px 14px 5px 10px;
+      font-size:0.8rem; color:var(--text2);
+    }
+    .user-dot { width:7px;height:7px;border-radius:50%;background:var(--green); }
+    .logout-btn { font-size:0.75rem;color:var(--text3);cursor:pointer;margin-left:2px; }
+    .logout-btn:hover { color:var(--red); }
+
+    /* ── Stats ── */
+    .stats-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:1rem; margin-bottom:2rem; }
+    @media(max-width:900px){ .stats-grid{ grid-template-columns:repeat(2,1fr); } }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center; margin-bottom:1.25rem;
+    }
+    .toolbar-left  { display:flex; gap:8px; flex-wrap:wrap; flex:1; }
+    .toolbar-right { display:flex; gap:8px; align-items:center; }
+    .filter-select { width:auto; min-width:150px; }
+
+    /* ── Search box ── */
+    .search-wrap { position:relative; }
+    .search-input {
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:10px; padding:8px 14px 8px 36px;
+      color:var(--text); font-family:var(--font-body); font-size:0.875rem;
+      outline:none; width:200px; transition:border-color 0.2s;
+    }
+    .search-input:focus { border-color:var(--accent2); }
+    .search-icon {
+      position:absolute; left:12px; top:50%; transform:translateY(-50%);
+      color:var(--text3); font-size:14px; pointer-events:none;
+    }
+
+    /* ── Table ── */
+    .table-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+    .table-wrap  { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; }
+    thead th {
+      text-align:left; font-size:0.7rem; font-weight:600;
+      color:var(--text3); text-transform:uppercase; letter-spacing:0.1em;
+      padding:10px 16px; border-bottom:1px solid var(--border);
+      background:var(--bg3); white-space:nowrap;
+    }
+    thead th.sortable { cursor:pointer; user-select:none; }
+    thead th.sortable:hover { color:var(--text2); }
+    tbody tr { border-bottom:1px solid var(--border); transition:background 0.15s; }
+    tbody tr:hover { background:rgba(255,255,255,0.025); }
+    tbody tr:last-child { border-bottom:none; }
+    tbody td { padding:11px 16px; font-size:0.875rem; vertical-align:middle; }
+    .token-num { font-family:var(--font-mono); font-size:1rem; color:var(--accent); font-weight:500; }
+
+    /* ── Empty state ── */
+    .empty-table {
+      padding:3.5rem; text-align:center;
+      display:flex; flex-direction:column; align-items:center; gap:10px;
+    }
+    .empty-table-icon { font-size:2rem; opacity:0.15; }
+
+    /* ── Actions ── */
+    .actions { display:flex; gap:5px; flex-wrap:nowrap; }
+
+    /* ── Patient name cell ── */
+    .patient-cell { display:flex; flex-direction:column; gap:2px; }
+    .patient-phone { font-size:0.72rem; color:var(--text3); font-family:var(--font-mono); }
+
+    /* ── Footer bar ── */
+    .table-footer {
+      padding:10px 16px; border-top:1px solid var(--border);
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:0.78rem; color:var(--text3); background:var(--bg3);
+    }
+
+    /* ── Countdown bar ── */
+    .refresh-bar {
+      height:2px; background:var(--bg3); border-radius:1px;
+      margin-bottom:1.5rem; overflow:hidden;
+    }
+    .refresh-progress {
+      height:100%; background:var(--accent);
+      border-radius:1px; opacity:0.4;
+      transition:width 1s linear;
+    }
+
+    /* ── Called highlight ── */
+    tbody tr.called-row { background:rgba(255,171,0,0.04); }
+    tbody tr.emergency-row { background:rgba(255,61,87,0.04); }
+  </style>
+</head>
+<body class="page">
+
+<nav class="navbar">
+  <a class="logo" href="index.html">QMS <span>Hospital</span></a>
+  <nav>
+    <a href="index.html">Display Board</a>
+    <a href="register.html">Register</a>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="doctor.html">Doctor</a>
+  </nav>
+</nav>
+
+<main class="main">
+
+  <!-- Top bar -->
+  <div class="top-bar fade-in">
+    <div class="top-bar-left">
+      <h1>Staff Dashboard</h1>
+      <span class="live-pill"><span class="live-dot"></span>Live queue — auto-refreshes every 15s</span>
+    </div>
+    <div class="top-bar-right">
+      <div class="user-chip">
+        <span class="user-dot"></span>
+        <span id="staffName">Staff</span>
+        <span class="logout-btn" onclick="logout()">Logout</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="manualRefresh()">↻ Refresh</button>
+      <button class="btn btn-primary btn-sm" onclick="callNext()">Call Next</button>
+    </div>
+  </div>
+
+  <!-- Refresh progress bar -->
+  <div class="refresh-bar"><div class="refresh-progress" id="refreshBar" style="width:100%"></div></div>
+
+  <!-- Stats -->
+  <div class="stats-grid fade-in">
+    <div class="stat-card blue">
+      <div class="stat-label">Total Today</div>
+      <div class="stat-value blue" id="statTotal">—</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-label">Waiting</div>
+      <div class="stat-value amber" id="statWaiting">—</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">In Consult</div>
+      <div class="stat-value purple" id="statConsult">—</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Completed</div>
+      <div class="stat-value green" id="statDone">—</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Avg Wait</div>
+      <div class="stat-value blue" id="statAvg">—</div>
+    </div>
+  </div>
+
+  <!-- Queue table -->
+  <div class="table-card fade-in">
+
+    <!-- Toolbar -->
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border)">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <!-- Search -->
+          <div class="search-wrap">
+            <span class="search-icon">⌕</span>
+            <input id="searchInput" class="search-input" type="text"
+              placeholder="Search patient or token..." oninput="renderTable()"/>
+          </div>
+          <!-- Dept filter — populated from API, not page reload -->
+          <select id="filterDept" class="form-select filter-select" onchange="renderTable()">
+            <option value="">All Departments</option>
+          </select>
+          <!-- Status filter -->
+          <select id="filterStatus" class="form-select filter-select" onchange="renderTable()">
+            <option value="">All Statuses</option>
+            <option value="waiting">Waiting</option>
+            <option value="called">Called</option>
+            <option value="in_consult">In Consult</option>
+            <option value="completed">Completed</option>
+            <option value="skipped">Skipped</option>
+          </select>
+        </div>
+        <div class="toolbar-right">
+          <span style="font-size:0.78rem;color:var(--text3)" id="tokenCount"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Token</th>
+            <th>Patient</th>
+            <th>Priority</th>
+            <th>Department</th>
+            <th>Doctor</th>
+            <th>Est. Wait</th>
+            <th>Status</th>
+            <th class="sortable" onclick="toggleSort()">Registered <span id="sortIcon">↓</span></th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tokenTable">
+          <tr>
+            <td colspan="9">
+              <div class="empty-table">
+                <div class="empty-table-icon">⏳</div>
+                <span style="color:var(--text3)">Loading queue...</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="table-footer">
+      <span id="lastRefresh">—</span>
+      <span id="footerCount">—</span>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth('staff', 'staff-login.html')) throw '';
+
+  const session = getSession('staff');
+  document.getElementById('staffName').textContent = session.name || 'Staff';
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let allTokens   = [];
+  let sortAsc     = false;
+  let refreshTimer;
+  let countdown   = 15;
+
+  // ── Logout ─────────────────────────────────────────────────────────────────
+  function logout() {
+    clearSession('staff');
+    window.location.href = 'staff-login.html';
+  }
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const s = await api.get('/stats');
+      document.getElementById('statTotal').textContent   = s.total_today   ?? '—';
+      document.getElementById('statWaiting').textContent = s.waiting        ?? '—';
+      document.getElementById('statConsult').textContent = s.in_consult     ?? '—';
+      document.getElementById('statDone').textContent    = s.completed_today ?? '—';
+      document.getElementById('statAvg').textContent     = s.avg_actual_wait ? `${s.avg_actual_wait}m` : '—';
+    } catch(e) {}
+  }
+
+  // ── Load departments ONCE into filter (not on every refresh) ───────────────
+  async function loadDepts() {
+    try {
+      const depts = await api.get('/departments');
+      const sel   = document.getElementById('filterDept');
+      // clear existing options except "All"
+      while (sel.options.length > 1) sel.remove(1);
+      depts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value       = d.id;
+        opt.textContent = d.name;
+        sel.appendChild(opt);
+      });
+    } catch(e) {}
+  }
+
+  // ── Fetch all tokens into memory ───────────────────────────────────────────
+  async function fetchTokens() {
+    try {
+      allTokens = await api.get('/tokens');
+      renderTable();
+      document.getElementById('lastRefresh').textContent =
+        'Last updated: ' + new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    } catch(e) {
+      showToast('Failed to load queue', 'error');
+    }
+  }
+
+  // ── Render table from in-memory data (fast, no API call) ──────────────────
+  function renderTable() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const dept   = document.getElementById('filterDept').value;
+    const status = document.getElementById('filterStatus').value;
+
+    let filtered = allTokens.filter(t => {
+      const matchSearch = !search ||
+        t.token_number.toLowerCase().includes(search) ||
+        t.patient_name.toLowerCase().includes(search);
+      const matchDept   = !dept   || String(t.department_id) === String(dept);
+      const matchStatus = !status || t.status === status;
+      return matchSearch && matchDept && matchStatus;
+    });
+
+    // Sort by registered_at
+    filtered.sort((a, b) => {
+      const diff = new Date(a.registered_at) - new Date(b.registered_at);
+      return sortAsc ? diff : -diff;
+    });
+
+    const count = filtered.length;
+    document.getElementById('tokenCount').textContent  = `${count} record${count !== 1 ? 's' : ''}`;
+    document.getElementById('footerCount').textContent = `${count} of ${allTokens.length} tokens`;
+
+    const tbody = document.getElementById('tokenTable');
+
+    if (!count) {
+      const msg = search || dept || status
+        ? 'No tokens match your filters'
+        : 'No patients in queue yet';
+      tbody.innerHTML = `
+        <tr><td colspan="9">
+          <div class="empty-table">
+            <div class="empty-table-icon">🪑</div>
+            <span style="color:var(--text3)">${msg}</span>
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(t => {
+      const isEmergency = t.patient_priority === 'Emergency';
+      const isCalled    = t.status === 'called';
+      const rowClass    = isEmergency ? 'emergency-row' : isCalled ? 'called-row' : '';
+      return `
+        <tr class="${rowClass}">
+          <td><span class="token-num">${t.token_number}</span></td>
+          <td>
+            <div class="patient-cell">
+              <span>${t.patient_name}</span>
+              ${t.patient_phone ? `<span class="patient-phone">${t.patient_phone}</span>` : ''}
+            </div>
+          </td>
+          <td>${priorityBadge(t.patient_priority)}</td>
+          <td style="color:var(--text2);font-size:0.82rem">${t.department_name}</td>
+          <td style="color:var(--text2);font-size:0.82rem">${t.doctor_name !== '—' ? t.doctor_name : '<span style="color:var(--text3)">—</span>'}</td>
+          <td style="color:var(--amber);font-family:var(--font-mono);font-size:0.82rem">${formatWait(t.predicted_wait_minutes)}</td>
+          <td>${statusBadge(t.status)}</td>
+          <td style="color:var(--text3);font-size:0.78rem;white-space:nowrap">${timeAgo(t.registered_at)}</td>
+          <td>
+            <div class="actions">
+              ${t.status === 'waiting'    ? `<button class="btn btn-amber btn-sm"   onclick="updateStatus(${t.id},'called')">Call</button>` : ''}
+              ${t.status === 'called'     ? `<button class="btn btn-success btn-sm" onclick="updateStatus(${t.id},'in_consult')">Consult</button>` : ''}
+              ${t.status === 'in_consult' ? `<button class="btn btn-success btn-sm" onclick="updateStatus(${t.id},'completed')">Done</button>` : ''}
+              ${['waiting','called'].includes(t.status) ? `<button class="btn btn-ghost btn-sm" onclick="updateStatus(${t.id},'skipped')">Skip</button>` : ''}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ── Sort toggle ────────────────────────────────────────────────────────────
+  function toggleSort() {
+    sortAsc = !sortAsc;
+    document.getElementById('sortIcon').textContent = sortAsc ? '↑' : '↓';
+    renderTable();
+  }
+
+  // ── Update token status ────────────────────────────────────────────────────
+  async function updateStatus(id, status) {
+    try {
+      await api.patch(`/tokens/${id}/status`, { status });
+      showToast(`Marked as ${status.replace('_',' ')}`);
+      loadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Call next waiting patient ──────────────────────────────────────────────
+  async function callNext() {
+    try {
+      const waiting = allTokens.filter(t => t.status === 'waiting');
+      if (!waiting.length) { showToast('No patients waiting', 'error'); return; }
+      // Sort by registration time to get actual next
+      waiting.sort((a,b) => new Date(a.registered_at) - new Date(b.registered_at));
+      const next = waiting[0];
+      await api.patch(`/tokens/${next.id}/status`, { status: 'called' });
+      showToast(`Called ${next.token_number} — ${next.patient_name}`);
+      loadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Manual refresh (does NOT reload the page) ──────────────────────────────
+  function manualRefresh() {
+    resetCountdown();
+    loadAll();
+    showToast('Queue refreshed');
+  }
+
+  // ── Auto-refresh countdown bar ─────────────────────────────────────────────
+  function resetCountdown() {
+    countdown = 15;
+    document.getElementById('refreshBar').style.width = '100%';
+  }
+
+  function tickCountdown() {
+    countdown--;
+    const pct = (countdown / 15) * 100;
+    document.getElementById('refreshBar').style.width = pct + '%';
+    if (countdown <= 0) {
+      loadAll();
+      resetCountdown();
+    }
+  }
+
+  // ── Load all ───────────────────────────────────────────────────────────────
+  function loadAll() {
+    loadStats();
+    fetchTokens();
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  loadDepts();   // load dept filter once
+  loadAll();     // first data load
+  setInterval(tickCountdown, 1000);  // countdown tick every second
+</script>
+</body>
+</html>
